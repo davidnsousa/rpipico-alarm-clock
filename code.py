@@ -46,6 +46,9 @@ time_clock = OrderedDict()
 global alarm_clock
 alarm_clock = OrderedDict()
 
+global minute_before
+minute_before = 0
+
 # funcs
 
 def rotary_pressed():
@@ -89,7 +92,6 @@ def reset_time_clock():
     global time_clock
     time_clock['hours'] = rtc.datetime()[4]
     time_clock['minutes'] = rtc.datetime()[5]
-    time_clock['seconds'] = rtc.datetime()[6]
     time_clock['day'] = rtc.datetime()[2]
     time_clock['month'] = rtc.datetime()[1]
     time_clock['year'] = rtc.datetime()[0] - 2000
@@ -102,7 +104,7 @@ def reset_alarm_clock():
 
 def update_rtc():
     global time_clock
-    rtc.datetime((time_clock['year'] + 2000, time_clock['month'], time_clock['day'], 0, time_clock['hours'], time_clock['minutes'], time_clock['seconds'], 0))
+    rtc.datetime((time_clock['year'] + 2000, time_clock['month'], time_clock['day'], 0, time_clock['hours'], time_clock['minutes'], 0, 0))
 
 def display_clock(clock,selection=""):
     if clock == 'time':
@@ -119,18 +121,13 @@ def display_clock(clock,selection=""):
         c['hours'] = '0'+str(c['hours'])
     if c['minutes'] < 10:
         c['minutes'] = '0'+str(c['minutes'])
-    if clock == 'time' and c['seconds'] < 10:
-        c['seconds'] = '0'+str(c['seconds'])
     # if a value is selected put the selection arrow character before selected value 
     if selection:
         c[selection] = f'{chr(0)}' + str(c[selection])
     # display clocks in the lcd screen
     if clock == 'time':
-        (hours,minutes,seconds,day,month,year) = (c['hours'],c['minutes'],c['seconds'],c['day'],c['month'],c['year'])
-        if selection:
-            lcd.putstr(f'{hours}:{minutes}:{seconds}\n{day}/{month}/{year}')
-        else:
-            lcd.putstr(f'{hours}:{minutes}:{seconds} {day}/{month}/{year}')
+        (hours,minutes,day,month,year) = (c['hours'],c['minutes'],c['day'],c['month'],c['year'])
+        lcd.putstr(f'{hours}:{minutes} {day}/{month}/{year}')
     if clock == 'alarm':          
         (hours,minutes,mode) = (c['hours'],c['minutes'],c['mode'])
         lcd.putstr(f'\n{hours}:{minutes} {mode}')
@@ -139,7 +136,6 @@ def number_loop_correction():
     global time_clock, alarm_clock
     time_clock['hours'] %= 24
     time_clock['minutes'] %= 60
-    time_clock['seconds'] %= 60
     time_clock['day'] %= 31
     time_clock['month'] %= 12
     alarm_clock['hours'] %= 24
@@ -172,9 +168,12 @@ def set_clock(clock, move_button):
                 break
         if clock_is_set:
             break
+    lcd.clear()
+    display_clock('time')
+    display_clock('alarm')
 
 def alarm_time():
-    if (time_clock['hours'],time_clock['minutes'],time_clock['seconds']) == (alarm_clock['hours'],alarm_clock['minutes'],0):
+    if (time_clock['hours'],time_clock['minutes'],rtc.datetime()[6]) == (alarm_clock['hours'],alarm_clock['minutes'],0):
         return True
 
 def fire_alarm():
@@ -194,6 +193,8 @@ def fire_alarm():
 
 def main():
     
+    global minute_before
+    
     lcd_backlight_state = True
     reset_alarm_clock()
 
@@ -201,10 +202,15 @@ def main():
         
         # reset
         
-        lcd.clear()
         reset_time_clock()
-        display_clock('time')
-        display_clock('alarm')
+        
+        # update display
+        
+        if time_clock['minutes'] != minute_before:
+            lcd.clear()
+            display_clock('time')
+            display_clock('alarm')
+            minute_before = time_clock['minutes']
         
         # lcd turn on/off light
         
@@ -223,7 +229,7 @@ def main():
         if alarm_clock['mode'] == 1 and alarm_time():
             fire_alarm()
         
-        sleep(1)        
+        sleep(0.5)        
                     
         
 if __name__ == "__main__":
